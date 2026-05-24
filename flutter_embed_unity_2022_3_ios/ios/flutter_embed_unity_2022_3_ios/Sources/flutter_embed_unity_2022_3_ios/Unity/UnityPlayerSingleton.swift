@@ -1,4 +1,5 @@
 import Foundation
+import MachO
 import UnityFramework
 
 class UnityPlayerSingleton {
