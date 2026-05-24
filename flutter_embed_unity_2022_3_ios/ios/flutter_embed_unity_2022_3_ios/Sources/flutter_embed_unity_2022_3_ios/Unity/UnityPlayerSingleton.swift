@@ -46,6 +46,7 @@ class UnityPlayerSingleton {
             unityFramework.appController()?.window?.windowLevel = UIWindow.Level(-1)
 
             self.unityFramework = unityFramework
+            LifecycleEventEmitter.runtimeLoaded()
             return unityFramework
         }
     }

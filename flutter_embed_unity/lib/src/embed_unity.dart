@@ -1,5 +1,6 @@
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter_embed_unity/src/lifecycle_state_machine.dart';
 import 'package:flutter_embed_unity/src/unity_message_listener.dart';
 import 'package:flutter_embed_unity/src/unity_message_listeners.dart';
 import 'package:flutter_embed_unity_platform_interface/flutter_embed_constants.dart';
@@ -21,6 +22,15 @@ class EmbedUnity extends StatefulWidget {
   @visibleForTesting
   static void debugResetSingleInstanceGuard() {
     _activeInstanceCount = 0;
+  }
+
+  static ValueListenable<EmbedUnityState> get lifecycleState =>
+      EmbedUnityLifecycle.instance.state;
+
+  static Future<void> waitForReady({
+    Duration timeout = const Duration(seconds: 5),
+  }) {
+    return EmbedUnityLifecycle.instance.waitForReady(timeout: timeout);
   }
 
   @override
@@ -54,6 +64,7 @@ class _EmbedUnityState extends State<EmbedUnity>
       EmbedUnity._activeInstanceCount -= 1;
       _guardAcquired = false;
     }
+    EmbedUnityLifecycle.instance.markViewAttached(false);
     super.dispose();
   }
 
@@ -70,6 +81,7 @@ class _EmbedUnityState extends State<EmbedUnity>
           viewType: FlutterEmbedConstants.uniqueIdentifier,
           onPlatformViewCreated: (int id) {
             debugPrint('FlutterEmbed: onPlatformViewCreated($id)');
+            EmbedUnityLifecycle.instance.markViewAttached(true);
           },
         );
       case TargetPlatform.iOS:
@@ -77,6 +89,7 @@ class _EmbedUnityState extends State<EmbedUnity>
           viewType: FlutterEmbedConstants.uniqueIdentifier,
           onPlatformViewCreated: (int id) {
             debugPrint('FlutterEmbed: onPlatformViewCreated($id)');
+            EmbedUnityLifecycle.instance.markViewAttached(true);
           },
         );
       default:

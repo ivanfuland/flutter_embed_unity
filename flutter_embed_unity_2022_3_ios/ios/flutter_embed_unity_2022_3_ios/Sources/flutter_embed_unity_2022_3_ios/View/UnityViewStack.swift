@@ -65,6 +65,8 @@ class UnityViewStack: NSObject {
         // However it may reappear if it wasn't destroyed (eg it was obscured underneath
         // another screen, and now has reappeared), in which case push it back onto the stack
         viewController.viewDidAppear = { viewId in
+            LifecycleEventEmitter.firstFrameSeen(viewId: viewId)
+            LifecycleEventEmitter.foregroundActive(true, viewId: viewId)
             if !self.viewStack.contains(where: {$0.viewId == viewId}) {
                 NSLog("UnityViewStack: View \(viewId) has reappeared, pushing back onto stack")
                 self.pushView(viewController)
@@ -75,6 +77,7 @@ class UnityViewStack: NSObject {
         
         // Resume unity
         unityPlayerSingleton.pause(false)
+        LifecycleEventEmitter.foregroundActive(true, viewId: viewController.viewId)
     }
 
     private func popView(_ viewController: UnityViewController) {
@@ -100,6 +103,7 @@ class UnityViewStack: NSObject {
             // No more Unity views, so pause
             NSLog("No more EmbedUnity widgets in stack, pausing Unity")
             unityPlayerSingleton.pause(true)
+            LifecycleEventEmitter.foregroundActive(false, viewId: viewController.viewId)
         }
     }
 }

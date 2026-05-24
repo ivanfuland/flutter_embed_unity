@@ -32,3 +32,11 @@
 - `sendToUnityRequest(...)` remains the H1 envelope request path; legacy `sendToUnity(...)` does not wrap payloads.
 - Hardened iOS `SendToUnity.swift` argument parsing by removing `as! [String]`, returning `FlutterError` for malformed method-call arguments, and calling `result(nil)` on the happy path.
 - Android native H2/H3 remains HOLD for the Android execution environment.
+
+## [portola] H6 - Dart and iOS lifecycle readiness state
+
+- Added Dart `EmbedUnityLifecycle` / `EmbedUnityState` with explicit `runtimeLoaded`, `viewAttached`, `firstFrameSeen`, `bridgeReady`, and `foregroundActive` flags plus aggregate `isReady = viewAttached && bridgeReady && firstFrameSeen`.
+- Exposed `EmbedUnity.lifecycleState` as a `ValueListenable<EmbedUnityState>` and `EmbedUnity.waitForReady(...)` for business-facing readiness.
+- `UnityMessageListeners` now marks `bridgeReady` only after valid H1 `resp` / `evt` envelopes; legacy non-envelope messages do not set bridge readiness.
+- iOS emits H1 `evt` lifecycle messages for `runtimeLoaded`, `firstFrameSeen`, and `foregroundActive`; `firstFrameSeen` currently uses the existing `UnityViewStack.viewDidAppear` hook as the best available render-readiness proxy in this fork structure.
+- Android H6 native event emit remains HOLD for the Android execution environment.

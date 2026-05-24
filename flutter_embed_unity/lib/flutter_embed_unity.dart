@@ -7,6 +7,8 @@ import 'src/unity_message_listeners.dart';
 export 'src/bridge_contract.dart'
     show BridgeEnvelope, BridgeError, BridgeContractDecodeException;
 export 'src/embed_unity.dart' show EmbedUnity;
+export 'src/lifecycle_state_machine.dart'
+    show EmbedUnityLifecycle, EmbedUnityLifecycleEvent, EmbedUnityState;
 export 'src/embed_unity_preferences.dart'
     show EmbedUnityPreferences, MessageFromUnityListeningBehaviour;
 export 'package:flutter_embed_unity/flutter_embed_unity.dart'

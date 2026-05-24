@@ -5,12 +5,16 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_embed_unity/src/bridge_contract.dart';
 import 'package:flutter_embed_unity/src/embed_unity_preferences.dart';
+import 'package:flutter_embed_unity/src/lifecycle_state_machine.dart';
 import 'package:flutter_embed_unity/src/unity_message_listener.dart';
 import 'package:flutter_embed_unity_platform_interface/flutter_embed_constants.dart';
 
 /// Registers listeners ([EmbedUnity] widgets) who want to receive messages from Unity.
 class UnityMessageListeners {
-  UnityMessageListeners._internal({bool registerChannelHandler = true}) {
+  UnityMessageListeners._internal({
+    bool registerChannelHandler = true,
+    EmbedUnityLifecycle? lifecycle,
+  }) : _lifecycle = lifecycle ?? EmbedUnityLifecycle.instance {
     if (registerChannelHandler) {
       _channel.setMethodCallHandler(_methodCallHandler);
     }
@@ -19,13 +23,19 @@ class UnityMessageListeners {
   static final instance = UnityMessageListeners._internal();
 
   @visibleForTesting
-  factory UnityMessageListeners.createForTest() {
-    return UnityMessageListeners._internal(registerChannelHandler: false);
+  factory UnityMessageListeners.createForTest({
+    EmbedUnityLifecycle? lifecycle,
+  }) {
+    return UnityMessageListeners._internal(
+      registerChannelHandler: false,
+      lifecycle: lifecycle,
+    );
   }
 
   final MethodChannel _channel = const MethodChannel(
     FlutterEmbedConstants.uniqueIdentifier,
   );
+  final EmbedUnityLifecycle _lifecycle;
   final List<UnityMessageListener> _listeners = [];
   final Map<String, _PendingBridgeRequest> _pendingRequests = {};
 
@@ -93,12 +103,22 @@ class UnityMessageListeners {
 
     switch (envelope.type) {
       case BridgeEnvelope.responseType:
+        _lifecycle.markBridgeReady();
         _completePendingResponse(envelope);
         return;
       case BridgeEnvelope.errorType:
         _completePendingError(envelope);
         return;
       case BridgeEnvelope.eventType:
+        _lifecycle.markBridgeReady();
+        final consumed = _lifecycle.handleEvent(
+          envelope.method,
+          payload: envelope.payload,
+        );
+        if (!consumed) {
+          _notifyLegacyListeners(_payloadToLegacyString(envelope.payload));
+        }
+        return;
       case BridgeEnvelope.requestType:
         _notifyLegacyListeners(_payloadToLegacyString(envelope.payload));
         return;
