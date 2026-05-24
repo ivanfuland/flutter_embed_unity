@@ -1,10 +1,15 @@
-library flutter_embed_unity;
-
 import 'package:flutter_embed_unity_platform_interface/flutter_embed_unity_platform_interface.dart';
 
+import 'src/bridge_contract.dart';
+import 'src/unity_message_listeners.dart';
+
+export 'src/bridge_contract.dart'
+    show BridgeEnvelope, BridgeError, BridgeContractDecodeException;
 export 'src/embed_unity.dart' show EmbedUnity;
-export 'src/embed_unity_preferences.dart' show EmbedUnityPreferences, MessageFromUnityListeningBehaviour;
-export 'package:flutter_embed_unity/flutter_embed_unity.dart' show sendToUnity, pauseUnity, resumeUnity;
+export 'src/embed_unity_preferences.dart'
+    show EmbedUnityPreferences, MessageFromUnityListeningBehaviour;
+export 'package:flutter_embed_unity/flutter_embed_unity.dart'
+    show sendToUnity, sendToUnityRequest, pauseUnity, resumeUnity;
 
 FlutterEmbedUnityPlatform get _platform => FlutterEmbedUnityPlatform.instance;
 
@@ -14,6 +19,33 @@ FlutterEmbedUnityPlatform get _platform => FlutterEmbedUnityPlatform.instance;
 /// The Unity method must be public and accept a single [String] parameter.
 void sendToUnity(String gameObjectName, String methodName, String data) {
   _platform.sendToUnity(gameObjectName, methodName, data);
+}
+
+/// Send a BridgeContract request envelope to Unity and wait for a matching
+/// `resp` or `err` envelope whose `corrId` equals the request `msgId`.
+///
+/// This keeps the existing native string channel intact while adding Dart-side
+/// request/response semantics for M7 H1.
+Future<dynamic> sendToUnityRequest(
+  String gameObjectName,
+  String methodName, {
+  Object? payload,
+  Duration timeout = const Duration(seconds: 5),
+  String? traceId,
+}) {
+  final request = BridgeEnvelope.request(
+    method: methodName,
+    payload: payload,
+    traceId: traceId,
+  );
+
+  return UnityMessageListeners.instance.sendRequest(
+    request,
+    timeout: timeout,
+    dispatch: (envelopeJson) {
+      _platform.sendToUnity(gameObjectName, methodName, envelopeJson);
+    },
+  );
 }
 
 /// Pause time in Unity.

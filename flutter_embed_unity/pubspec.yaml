@@ -28,6 +28,8 @@ dependencies:
   flutter_embed_unity_2022_3_ios: ^2.0.0
 
 dev_dependencies:
+  flutter_test:
+    sdk: flutter
   flutter_lints: ^6.0.0
 
 flutter:
