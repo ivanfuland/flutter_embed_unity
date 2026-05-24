@@ -27,7 +27,12 @@ class UnityPlayerSingleton {
             let unityBundle = Bundle.init(path: bundlePath)!
             let unityFramework = unityBundle.principalClass!.getInstance()!
             unityFramework.setDataBundleId(dataBundleId)
-            unityFramework.setExecuteHeader(&_mh_execute_header)
+            guard let mainExecutableHeader = _dyld_get_image_header(0) else {
+                fatalError("Unity execute header unavailable")
+            }
+            let executeHeader = UnsafeRawPointer(mainExecutableHeader)
+                .assumingMemoryBound(to: MachHeader.self)
+            unityFramework.setExecuteHeader(executeHeader)
             unityFramework.runEmbedded(
                 withArgc: CommandLine.argc,
                 argv: CommandLine.unsafeArgv,
