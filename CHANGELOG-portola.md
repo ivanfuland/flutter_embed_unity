@@ -24,3 +24,11 @@
 - A second active instance now throws `StateError('Only one EmbedUnity allowed in P0')` during `initState`.
 - Disposing the active `EmbedUnity` releases the guard so the host shell can recreate Unity after detach/dispose.
 - Android and iOS native factory guards remain deferred to the later H5 native port.
+
+## [portola] H2-H3 - Dart and iOS sendToUnity result hardening
+
+- Changed Dart `sendToUnity(...)` to return `Future<void>` and map native `PlatformException` failures to H1 `BridgeError`, while keeping the legacy method name and parameters.
+- Preserved legacy `sendToUnity(...)` raw `data` passthrough so M6B host shell BridgeContract v0.1.0 JSON stays byte-identical.
+- `sendToUnityRequest(...)` remains the H1 envelope request path; legacy `sendToUnity(...)` does not wrap payloads.
+- Hardened iOS `SendToUnity.swift` argument parsing by removing `as! [String]`, returning `FlutterError` for malformed method-call arguments, and calling `result(nil)` on the happy path.
+- Android native H2/H3 remains HOLD for the Android execution environment.

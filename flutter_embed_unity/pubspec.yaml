@@ -32,6 +32,10 @@ dev_dependencies:
     sdk: flutter
   flutter_lints: ^6.0.0
 
+dependency_overrides:
+  flutter_embed_unity_platform_interface:
+    path: ../flutter_embed_unity_platform_interface
+
 flutter:
   plugin:
     platforms:

@@ -1,6 +1,7 @@
 import 'dart:async';
 import 'dart:convert';
 
+import 'package:flutter/services.dart';
 import 'package:flutter_embed_unity/flutter_embed_unity.dart';
 import 'package:flutter_embed_unity/src/unity_message_listeners.dart';
 import 'package:flutter_embed_unity_platform_interface/flutter_embed_unity_platform_interface.dart';
@@ -166,6 +167,10 @@ void main() {
   });
 
   group('public Future API', () {
+    setUp(() {
+      FlutterEmbedUnityPlatform.instance = _FakePlatform();
+    });
+
     test(
       'sendToUnityRequest dispatches envelope JSON over legacy channel',
       () async {
@@ -203,6 +208,39 @@ void main() {
         expect(jsonDecode(fakePlatform.sentData!)['type'], 'req');
       },
     );
+
+    test(
+      'sendToUnity awaits native success and preserves raw legacy data',
+      () async {
+        final fakePlatform = _FakePlatform();
+        FlutterEmbedUnityPlatform.instance = fakePlatform;
+        const rawBridgeContractJson = '{"protocolVersion":"0.1.0"}';
+
+        await sendToUnity(
+          'GameBridge',
+          'OnNativeMessage',
+          rawBridgeContractJson,
+        );
+
+        expect(fakePlatform.gameObjectName, 'GameBridge');
+        expect(fakePlatform.methodName, 'OnNativeMessage');
+        expect(fakePlatform.sentData, rawBridgeContractJson);
+      },
+    );
+
+    test('sendToUnity maps PlatformException to BridgeError', () async {
+      FlutterEmbedUnityPlatform.instance = _ThrowingPlatform();
+
+      await expectLater(
+        sendToUnity('Bridge', 'LoadScene', 'Mini'),
+        throwsA(
+          isA<BridgeError>()
+              .having((error) => error.code, 'code', 'INVALID_ENVELOPE')
+              .having((error) => error.message, 'message', 'Bad envelope')
+              .having((error) => error.details, 'details', {'field': 'v'}),
+        ),
+      );
+    });
   });
 }
 
@@ -212,9 +250,28 @@ class _FakePlatform extends FlutterEmbedUnityPlatform {
   String? sentData;
 
   @override
-  void sendToUnity(String gameObjectName, String methodName, String data) {
+  Future<void> sendToUnity(
+    String gameObjectName,
+    String methodName,
+    String data,
+  ) async {
     this.gameObjectName = gameObjectName;
     this.methodName = methodName;
     sentData = data;
+  }
+}
+
+class _ThrowingPlatform extends FlutterEmbedUnityPlatform {
+  @override
+  Future<void> sendToUnity(
+    String gameObjectName,
+    String methodName,
+    String data,
+  ) async {
+    throw PlatformException(
+      code: 'INVALID_ENVELOPE',
+      message: 'Bad envelope',
+      details: {'field': 'v'},
+    );
   }
 }

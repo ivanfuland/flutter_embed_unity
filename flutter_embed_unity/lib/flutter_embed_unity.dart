@@ -1,3 +1,4 @@
+import 'package:flutter/services.dart';
 import 'package:flutter_embed_unity_platform_interface/flutter_embed_unity_platform_interface.dart';
 
 import 'src/bridge_contract.dart';
@@ -17,8 +18,12 @@ FlutterEmbedUnityPlatform get _platform => FlutterEmbedUnityPlatform.instance;
 /// Unity game object named [gameObjectName] in the active scene.
 ///
 /// The Unity method must be public and accept a single [String] parameter.
-void sendToUnity(String gameObjectName, String methodName, String data) {
-  _platform.sendToUnity(gameObjectName, methodName, data);
+Future<void> sendToUnity(
+  String gameObjectName,
+  String methodName,
+  String data,
+) {
+  return _sendDataToUnity(gameObjectName, methodName, data);
 }
 
 /// Send a BridgeContract request envelope to Unity and wait for a matching
@@ -43,9 +48,25 @@ Future<dynamic> sendToUnityRequest(
     request,
     timeout: timeout,
     dispatch: (envelopeJson) {
-      _platform.sendToUnity(gameObjectName, methodName, envelopeJson);
+      return _sendDataToUnity(gameObjectName, methodName, envelopeJson);
     },
   );
+}
+
+Future<void> _sendDataToUnity(
+  String gameObjectName,
+  String methodName,
+  String data,
+) async {
+  try {
+    await _platform.sendToUnity(gameObjectName, methodName, data);
+  } on PlatformException catch (error) {
+    throw BridgeError(
+      error.code,
+      error.message ?? 'sendToUnity failed.',
+      details: error.details,
+    );
+  }
 }
 
 /// Pause time in Unity.

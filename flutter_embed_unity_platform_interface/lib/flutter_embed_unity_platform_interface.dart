@@ -32,7 +32,11 @@ abstract class FlutterEmbedUnityPlatform extends PlatformInterface {
   /// Unity game object named [gameObjectName] in the active scene.
   ///
   /// The Unity method must be public and accept a single [String] parameter.
-  void sendToUnity(String gameObjectName, String methodName, String data) {
+  Future<void> sendToUnity(
+    String gameObjectName,
+    String methodName,
+    String data,
+  ) {
     throw UnimplementedError('sendToUnity() has not been implemented.');
   }
 
