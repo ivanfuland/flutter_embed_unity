@@ -17,3 +17,10 @@
 - Added Dart-side `corrId` request router with timeout, `BridgeError` propagation, and unknown-`corrId` logging without crashing.
 - Added `sendToUnityRequest(...) -> Future<dynamic>` while preserving the legacy `sendToUnity(...)` compatibility path used by the M6B host shell.
 - Android native and iOS native ports remain deferred to later H2/H3/H6 work; they should consume this Dart envelope API when those tasks start.
+
+## [portola] H5 - Dart single-instance Unity guard
+
+- Added a Dart-side fail-fast guard so only one active `EmbedUnity` instance can be mounted in the process at a time.
+- A second active instance now throws `StateError('Only one EmbedUnity allowed in P0')` during `initState`.
+- Disposing the active `EmbedUnity` releases the guard so the host shell can recreate Unity after detach/dispose.
+- Android and iOS native factory guards remain deferred to the later H5 native port.

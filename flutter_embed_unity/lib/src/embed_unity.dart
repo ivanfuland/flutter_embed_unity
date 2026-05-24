@@ -14,20 +14,46 @@ class EmbedUnity extends StatefulWidget {
 
   const EmbedUnity({this.onMessageFromUnity, super.key});
 
+  static const singleInstanceErrorMessage = 'Only one EmbedUnity allowed in P0';
+
+  static int _activeInstanceCount = 0;
+
+  @visibleForTesting
+  static void debugResetSingleInstanceGuard() {
+    _activeInstanceCount = 0;
+  }
+
   @override
   State<EmbedUnity> createState() => _EmbedUnityState();
 }
 
-class _EmbedUnityState extends State<EmbedUnity> implements UnityMessageListener {
+class _EmbedUnityState extends State<EmbedUnity>
+    implements UnityMessageListener {
+  bool _guardAcquired = false;
+  bool _listenerRegistered = false;
+
   @override
   void initState() {
-    UnityMessageListeners.instance.addListener(this);
     super.initState();
+    if (EmbedUnity._activeInstanceCount > 0) {
+      throw StateError(EmbedUnity.singleInstanceErrorMessage);
+    }
+    EmbedUnity._activeInstanceCount += 1;
+    _guardAcquired = true;
+    UnityMessageListeners.instance.addListener(this);
+    _listenerRegistered = true;
   }
 
   @override
   void dispose() {
-    UnityMessageListeners.instance.removeListener(this);
+    if (_listenerRegistered) {
+      UnityMessageListeners.instance.removeListener(this);
+      _listenerRegistered = false;
+    }
+    if (_guardAcquired) {
+      EmbedUnity._activeInstanceCount -= 1;
+      _guardAcquired = false;
+    }
     super.dispose();
   }
 
