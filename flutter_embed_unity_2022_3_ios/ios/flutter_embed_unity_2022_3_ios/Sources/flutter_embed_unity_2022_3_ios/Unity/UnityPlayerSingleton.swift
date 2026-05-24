@@ -26,6 +26,7 @@ class UnityPlayerSingleton {
             let unityBundle = Bundle.init(path: bundlePath)!
             let unityFramework = unityBundle.principalClass!.getInstance()!
             unityFramework.setDataBundleId(dataBundleId)
+            unityFramework.setExecuteHeader(&_mh_execute_header)
             unityFramework.runEmbedded(
                 withArgc: CommandLine.argc,
                 argv: CommandLine.unsafeArgv,

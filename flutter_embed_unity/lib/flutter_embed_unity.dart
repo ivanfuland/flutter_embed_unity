@@ -2,6 +2,7 @@ import 'package:flutter/services.dart';
 import 'package:flutter_embed_unity_platform_interface/flutter_embed_unity_platform_interface.dart';
 
 import 'src/bridge_contract.dart';
+import 'src/observability.dart';
 import 'src/unity_message_listeners.dart';
 
 export 'src/bridge_contract.dart'
@@ -9,6 +10,15 @@ export 'src/bridge_contract.dart'
 export 'src/embed_unity.dart' show EmbedUnity;
 export 'src/lifecycle_state_machine.dart'
     show EmbedUnityLifecycle, EmbedUnityLifecycleEvent, EmbedUnityState;
+export 'src/observability.dart'
+    show
+        DebugPrintObservabilitySink,
+        EmbedUnityObservability,
+        EmbedUnityTraceEvent,
+        EmbedUnityTraceEventType,
+        FileObservabilitySinkPlaceholder,
+        ObservabilitySink,
+        RemoteObservabilitySinkPlaceholder;
 export 'src/embed_unity_preferences.dart'
     show EmbedUnityPreferences, MessageFromUnityListeningBehaviour;
 export 'package:flutter_embed_unity/flutter_embed_unity.dart'
@@ -75,10 +85,12 @@ Future<void> _sendDataToUnity(
 ///
 /// Unity will remain loaded in memory and still be able to accept messages.
 void pauseUnity() {
+  EmbedUnityObservability.instance.trace(EmbedUnityTraceEventType.pause);
   _platform.pauseUnity();
 }
 
 /// Resume time in Unity.
 void resumeUnity() {
+  EmbedUnityObservability.instance.trace(EmbedUnityTraceEventType.resume);
   _platform.resumeUnity();
 }

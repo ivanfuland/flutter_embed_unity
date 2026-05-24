@@ -56,3 +56,11 @@
 - Added iOS source guidance that normal route exits must not call Unity quit/unload; the current iOS policy is pause + detach only.
 - Unity 2022.3 iOS UnityFramework stub headers expose `unloadApplication` and `quitApplication`, but this fork does not call them until a same-session recovery path is validated.
 - iOS memory profiler validation remains pending until `portola-p0` bumps to this fork SHA; Android H7 remains HOLD for the Android execution environment.
+
+## [portola] H10 - Observability trace foundation
+
+- Added Dart `EmbedUnityTraceEvent` schema with H10 fields, supported event-type validation, JSON serialization, and a sink interface.
+- Added debugPrint sink plus file/remote placeholder sinks; sink failures are caught so observability cannot break Unity host flows.
+- Wired lifecycle traces for attach, detach, first frame, bridge ready, foreground changes, pause, and resume.
+- iOS now calls `UnityFramework.setExecuteHeader(&_mh_execute_header)` before `runEmbedded(...)` when loading Unity, matching the Unity CrashReporter hook exposed by the Unity 2022.3 framework headers.
+- iOS induced-crash CrashReporter validation and Android crash collection remain HOLD until `portola-p0` bumps to this fork SHA / Android execution resumes.

@@ -1,6 +1,7 @@
 import 'dart:async';
 
 import 'package:flutter/foundation.dart';
+import 'package:flutter_embed_unity/src/observability.dart';
 
 class EmbedUnityLifecycleEvent {
   static const runtimeLoaded = 'runtimeLoaded';
@@ -74,15 +75,19 @@ class EmbedUnityState {
 }
 
 class EmbedUnityLifecycle {
-  EmbedUnityLifecycle._();
+  EmbedUnityLifecycle._({EmbedUnityObservability? observability})
+    : _observability = observability ?? EmbedUnityObservability.instance;
 
   static final instance = EmbedUnityLifecycle._();
 
   @visibleForTesting
-  factory EmbedUnityLifecycle.createForTest() {
-    return EmbedUnityLifecycle._();
+  factory EmbedUnityLifecycle.createForTest({
+    EmbedUnityObservability? observability,
+  }) {
+    return EmbedUnityLifecycle._(observability: observability);
   }
 
+  final EmbedUnityObservability _observability;
   final ValueNotifier<EmbedUnityState> _state = ValueNotifier(
     const EmbedUnityState(),
   );
@@ -129,6 +134,7 @@ class EmbedUnityLifecycle {
   void markViewAttached(bool attached) {
     if (attached) {
       _update(_state.value.copyWith(viewAttached: true));
+      _observability.trace(EmbedUnityTraceEventType.attach);
       return;
     }
 
@@ -139,18 +145,25 @@ class EmbedUnityLifecycle {
         foregroundActive: false,
       ),
     );
+    _observability.trace(EmbedUnityTraceEventType.detach);
   }
 
   void markFirstFrameSeen() {
     _update(_state.value.copyWith(firstFrameSeen: true));
+    _observability.trace(EmbedUnityTraceEventType.firstFrame);
   }
 
   void markBridgeReady() {
     _update(_state.value.copyWith(bridgeReady: true));
+    _observability.trace(EmbedUnityTraceEventType.bridgeReady);
   }
 
   void markForegroundActive(bool active) {
     _update(_state.value.copyWith(foregroundActive: active));
+    _observability.trace(
+      EmbedUnityTraceEventType.foregroundChange,
+      details: {'active': active},
+    );
   }
 
   bool handleEvent(String method, {Object? payload}) {
