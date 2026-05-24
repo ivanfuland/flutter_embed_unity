@@ -57,6 +57,33 @@ void main() {
     },
   );
 
+  test('detaching resets current-view readiness without clearing bridge', () {
+    lifecycle.markRuntimeLoaded();
+    lifecycle.markViewAttached(true);
+    lifecycle.markBridgeReady();
+    lifecycle.markFirstFrameSeen();
+    lifecycle.markForegroundActive(true);
+
+    expect(lifecycle.state.value.isReady, isTrue);
+
+    lifecycle.markViewAttached(false);
+
+    expect(lifecycle.state.value.isReady, isFalse);
+    expect(lifecycle.state.value.firstFrameSeen, isFalse);
+    expect(lifecycle.state.value.foregroundActive, isFalse);
+    expect(lifecycle.state.value.bridgeReady, isTrue);
+    expect(lifecycle.state.value.runtimeLoaded, isTrue);
+
+    lifecycle.markViewAttached(true);
+
+    expect(lifecycle.state.value.isReady, isFalse);
+    expect(lifecycle.state.value.firstFrameSeen, isFalse);
+
+    lifecycle.markFirstFrameSeen();
+
+    expect(lifecycle.state.value.isReady, isTrue);
+  });
+
   test(
     'waitForReady completes when aggregate readiness becomes true',
     () async {

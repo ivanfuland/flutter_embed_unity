@@ -127,7 +127,18 @@ class EmbedUnityLifecycle {
   }
 
   void markViewAttached(bool attached) {
-    _update(_state.value.copyWith(viewAttached: attached));
+    if (attached) {
+      _update(_state.value.copyWith(viewAttached: true));
+      return;
+    }
+
+    _update(
+      _state.value.copyWith(
+        viewAttached: false,
+        firstFrameSeen: false,
+        foregroundActive: false,
+      ),
+    );
   }
 
   void markFirstFrameSeen() {
