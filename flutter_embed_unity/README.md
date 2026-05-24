@@ -181,6 +181,18 @@ Unity can only render in 1 widget at a time. Therefore, you can only use one `Em
 ## Memory usage
 Running Unity has a significant impact on memory usage, in addition to that already used by Flutter, so may not work well on low-end devices. After the first `EmbedUnity` widget is shown on screen and Unity loads, Unity will remain in memory in the background (but paused) even after the widget has been disposed. This is because embedded Unity does not support shutting down without shutting down the entire app. See [the official limitations for more details](https://docs.unity3d.com/Manual/UnityasaLibrary.html).
 
+## Memory policy
+
+This fork treats Unity as a single runtime for the app session and treats `EmbedUnity` widgets as attach points for that runtime:
+
+- Unity runtime is loaded once and remains resident by default.
+- Entering a Unity page attaches and shows Unity.
+- Leaving a Unity page pauses Unity and detaches it from the current Flutter view.
+- Runtime unload is reserved for memory pressure or long idle handling, not for ordinary route returns.
+- Quitting Unity is not a normal return path. Business code must not expose or call Unity `quitApplication` / `unloadApplication` for page navigation.
+
+On iOS in the current fork, the safe normal path is pause plus detach only. UnityFramework headers expose unload and quit symbols, but this fork does not call them from route disposal because that would make returning to Unity in the same app session unsafe without a separately validated recovery path.
+
 
 ## android:configChanges
 On Android, if the Activity it runs in is destroyed, Unity will kill the entire app. As a consequence, we cannot handle the main FlutterActivity being destroyed, for example on orientation change. Therefore you must make sure that `android:configChanges` on the `MainActivity` of the app in the `android` subfolder of your Flutter project includes at least orientation, screenLayout, screenSize and keyboardHidden (to prevent the Activity being destroyed when these events occur) and ideally all the values included in the default configuration:

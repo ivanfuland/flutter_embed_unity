@@ -5,10 +5,9 @@ class UnityPlayerSingleton {
     private static let dataBundleId: String = "com.unity3d.framework"
     private static let frameworkPath: String = "/Frameworks/UnityFramework.framework"
     
-    // We must use a singleton Unity instance, because it was never designed to be
-    // reused in multiple views. The workaround is to only
-    // create Unity once, and keep it alive when the view is disposed
-    // so it can be reattach onto the next view.
+    // H7 memory policy: use one Unity runtime for the app session. Normal route
+    // exits pause and detach the view; they must not quit or unload Unity because
+    // same-process relaunch is not a validated return path in this fork.
     static private var unityFramework : UnityFramework?
     
     static var isInitialised: Bool {

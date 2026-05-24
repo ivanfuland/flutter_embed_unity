@@ -48,3 +48,11 @@
 - iOS handles `unmountUnity` by popping the current `UnityViewStack` view idempotently; an empty stack completes successfully.
 - `UnityViewStack.viewDidDisappear` is now diagnostic-only because UIKit disappear can be caused by modal, keyboard, navigation overlay, or another route covering the view.
 - iOS source change is done in the fork; push/pop/modal/TabBar/keyboard scenario validation remains pending until `portola-p0` bumps to this fork SHA.
+
+## [portola] H7 - Unity runtime memory policy
+
+- Documented the fork memory policy: single Unity runtime per app session, attach/show on entry, pause + detach on exit, unload only for memory pressure or long idle, and quit is not a normal return path.
+- Verified the Dart public surface does not expose `quitApplication` or `unloadApplication`.
+- Added iOS source guidance that normal route exits must not call Unity quit/unload; the current iOS policy is pause + detach only.
+- Unity 2022.3 iOS UnityFramework stub headers expose `unloadApplication` and `quitApplication`, but this fork does not call them until a same-session recovery path is validated.
+- iOS memory profiler validation remains pending until `portola-p0` bumps to this fork SHA; Android H7 remains HOLD for the Android execution environment.
