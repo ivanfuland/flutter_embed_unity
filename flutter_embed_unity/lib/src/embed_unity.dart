@@ -1,9 +1,12 @@
+import 'dart:async';
+
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_embed_unity/src/lifecycle_state_machine.dart';
 import 'package:flutter_embed_unity/src/unity_message_listener.dart';
 import 'package:flutter_embed_unity/src/unity_message_listeners.dart';
 import 'package:flutter_embed_unity_platform_interface/flutter_embed_constants.dart';
+import 'package:flutter_embed_unity_platform_interface/flutter_embed_unity_platform_interface.dart';
 
 /// Embed Unity into your Flutter app and listen for messages from your Unity scripts.
 ///
@@ -65,7 +68,18 @@ class _EmbedUnityState extends State<EmbedUnity>
       _guardAcquired = false;
     }
     EmbedUnityLifecycle.instance.markViewAttached(false);
+    if (defaultTargetPlatform == TargetPlatform.iOS) {
+      unawaited(_unmountUnityBestEffort());
+    }
     super.dispose();
+  }
+
+  Future<void> _unmountUnityBestEffort() async {
+    try {
+      await FlutterEmbedUnityPlatform.instance.unmountUnity();
+    } catch (error) {
+      debugPrint('FlutterEmbed: unmountUnity failed during dispose: $error');
+    }
   }
 
   @override

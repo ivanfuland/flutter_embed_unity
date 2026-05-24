@@ -30,4 +30,11 @@ class MethodChannelFlutterEmbedUnity extends FlutterEmbedUnityPlatform {
   void resumeUnity() {
     _channel.invokeMethod(FlutterEmbedConstants.methodNameResumeUnity);
   }
+
+  @override
+  Future<void> unmountUnity() async {
+    await _channel.invokeMethod<void>(
+      FlutterEmbedConstants.methodNameUnmountUnity,
+    );
+  }
 }

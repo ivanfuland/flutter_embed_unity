@@ -7,4 +7,5 @@ class FlutterEmbedConstants {
   static const methodNameSendToFlutter = "sendToFlutter";
   static const methodNamePauseUnity = "pauseUnity";
   static const methodNameResumeUnity = "resumeUnity";
+  static const methodNameUnmountUnity = "unmountUnity";
 }

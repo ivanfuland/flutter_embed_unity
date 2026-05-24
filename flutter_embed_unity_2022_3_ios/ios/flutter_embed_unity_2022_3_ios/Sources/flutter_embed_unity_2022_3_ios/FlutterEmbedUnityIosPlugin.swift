@@ -3,7 +3,8 @@ import UIKit
 
 public class FlutterEmbedUnityIosPlugin: NSObject, FlutterPlugin {
     
-    private let sendToUnity = SendToUnity()
+    private let viewStack = UnityViewStack()
+    private lazy var sendToUnity = SendToUnity(viewStack: viewStack)
     
     public static func register(with registrar: FlutterPluginRegistrar) {
         // Register the method call handler
@@ -22,7 +23,9 @@ public class FlutterEmbedUnityIosPlugin: NSObject, FlutterPlugin {
         //    viewType: Constants.uniqueViewIdentifier,
         // )
         // the UnityViewFactory will be invoked to create a UnityPlatformView:
-        let platformViewFactory = UnityViewFactory(messenger: registrar.messenger())
+        let platformViewFactory = UnityViewFactory(
+            messenger: registrar.messenger(),
+            viewStack: instance.viewStack)
         registrar.register(
             platformViewFactory,
             withId: FlutterEmbedConstants.uniqueIdentifier,

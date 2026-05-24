@@ -1,15 +1,21 @@
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_embed_unity/flutter_embed_unity.dart';
+import 'package:flutter_embed_unity_platform_interface/flutter_embed_unity_platform_interface.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 void main() {
   setUp(() {
     EmbedUnity.debugResetSingleInstanceGuard();
+    FlutterEmbedUnityPlatform.instance = _RecordingPlatform();
+    addTearDown(() {
+      debugDefaultTargetPlatformOverride = null;
+    });
   });
 
   tearDown(() {
     EmbedUnity.debugResetSingleInstanceGuard();
+    FlutterEmbedUnityPlatform.instance = _RecordingPlatform();
   });
 
   testWidgets('single EmbedUnity instance mounts successfully', (tester) async {
@@ -47,8 +53,55 @@ void main() {
     await tester.pumpWidget(_wrap(const SizedBox.shrink()));
     debugDefaultTargetPlatformOverride = null;
   });
+
+  testWidgets('dispose sends best-effort unmountUnity', (tester) async {
+    final platform = _RecordingPlatform();
+    FlutterEmbedUnityPlatform.instance = platform;
+    debugDefaultTargetPlatformOverride = TargetPlatform.iOS;
+
+    await tester.pumpWidget(_wrap(const EmbedUnity()));
+    await tester.pumpWidget(_wrap(const SizedBox.shrink()));
+    await tester.pump();
+
+    expect(platform.unmountCalls, 1);
+    expect(tester.takeException(), isNull);
+    debugDefaultTargetPlatformOverride = null;
+  });
+
+  testWidgets('dispose swallows native unmountUnity failure', (tester) async {
+    final platform = _ThrowingUnmountPlatform();
+    FlutterEmbedUnityPlatform.instance = platform;
+    debugDefaultTargetPlatformOverride = TargetPlatform.iOS;
+
+    await tester.pumpWidget(_wrap(const EmbedUnity()));
+    await tester.pumpWidget(_wrap(const SizedBox.shrink()));
+    await tester.pump();
+
+    expect(platform.unmountCalls, 1);
+    expect(tester.takeException(), isNull);
+    debugDefaultTargetPlatformOverride = null;
+  });
 }
 
 Widget _wrap(Widget child) {
   return MaterialApp(home: Scaffold(body: child));
+}
+
+class _RecordingPlatform extends FlutterEmbedUnityPlatform {
+  int unmountCalls = 0;
+
+  @override
+  Future<void> unmountUnity() async {
+    unmountCalls += 1;
+  }
+}
+
+class _ThrowingUnmountPlatform extends FlutterEmbedUnityPlatform {
+  int unmountCalls = 0;
+
+  @override
+  Future<void> unmountUnity() async {
+    unmountCalls += 1;
+    throw Exception('native unmount failed');
+  }
 }

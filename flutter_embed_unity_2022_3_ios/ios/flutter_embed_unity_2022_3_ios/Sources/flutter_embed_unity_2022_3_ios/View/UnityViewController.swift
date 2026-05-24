@@ -8,10 +8,9 @@
 import Foundation
 import UnityFramework
 
-// The purpose of this class is simply to provide a way to override
-// viewDidDisappear, so we can signal to UnityViewStack that UnityView
-// is being disposed, so it can detach Unity from the view, and
-// possibly reattach to a different view
+// The purpose of this class is to surface UIViewController visibility events to
+// UnityViewStack for diagnostics and render-readiness signals. Detach/cleanup is
+// driven by Dart's explicit `unmountUnity` platform-channel call.
 class UnityViewController : UIViewController {
     
     private var unityView: UnityView

@@ -40,3 +40,11 @@
 - `UnityMessageListeners` now marks `bridgeReady` only after valid H1 `resp` / `evt` envelopes; legacy non-envelope messages do not set bridge readiness.
 - iOS emits H1 `evt` lifecycle messages for `runtimeLoaded`, `firstFrameSeen`, and `foregroundActive`; `firstFrameSeen` currently uses the existing `UnityViewStack.viewDidAppear` hook as the best available render-readiness proxy in this fork structure.
 - Android H6 native event emit remains HOLD for the Android execution environment.
+
+## [portola] H4 - Explicit iOS unmount signal
+
+- Added platform-interface `unmountUnity()` and a MethodChannel `unmountUnity` method for Dart-driven Unity view detach.
+- `EmbedUnity.dispose()` now sends best-effort iOS `unmountUnity` after releasing Dart readiness state; native failures are logged and do not escape widget disposal.
+- iOS handles `unmountUnity` by popping the current `UnityViewStack` view idempotently; an empty stack completes successfully.
+- `UnityViewStack.viewDidDisappear` is now diagnostic-only because UIKit disappear can be caused by modal, keyboard, navigation overlay, or another route covering the view.
+- iOS source change is done in the fork; push/pop/modal/TabBar/keyboard scenario validation remains pending until `portola-p0` bumps to this fork SHA.

@@ -39,27 +39,11 @@ class UnityViewStack: NSObject {
         viewStack.append(viewController)
         NSLog("UnityViewStack: pushed Unity view \(viewController.viewId) onto stack")
         
-        
-        // ---------------------------------------------
-        // TODO: find a simpler way to achieve the below
-        // The following isn't ideal. The reason is that I couldn't find an
-        // obvious way to reliably detect when the viewController is destroyed.
-        // FlutterPlatformView doesn't provide a `dispose` method
-        // to override (like the Android equivalent does), classes in Swift
-        // don't seem to provide a dispose or dealloc method to override, and
-        // I can't find anything useful in UIViewController or UIView to detect
-        // being destroyed. There is probably some easy way to do this but I just
-        // can't figure it out yet.
-        // So instead this is a bit of a workaround using viewDidDisappear
-        // on UIViewController, which is called if the view is destroyed, OR
-        // also if the view is simply being obscured by another view ontop (eg if a
-        // Flutter PageRoute is pushed onto the stack). Therefore the below logic
-        // needs to handle both cases:
-        
-        // If it disappears, it MAY have been destroyed, so remove from stack
+        // Dart `unmountUnity` is the authoritative detach signal. UIKit
+        // disappear can also be caused by a modal, keyboard, navigation overlay,
+        // or another route covering this view, so it must not drive cleanup.
         viewController.viewDidDisappear = { viewId in
-            NSLog("UnityViewStack: Unity view \(viewController.viewId) disappeared, removing from stack")
-            self.popView(viewController)
+            NSLog("UnityViewStack: Unity view \(viewId) disappeared; diagnostic only, waiting for Dart unmountUnity")
         }
         
         // However it may reappear if it wasn't destroyed (eg it was obscured underneath
@@ -72,12 +56,18 @@ class UnityViewStack: NSObject {
                 self.pushView(viewController)
             }
         }
-        // ---------------------------------------------
-        
-        
         // Resume unity
         unityPlayerSingleton.pause(false)
         LifecycleEventEmitter.foregroundActive(true, viewId: viewController.viewId)
+    }
+
+    func popCurrentView() {
+        guard let currentViewController = viewStack.last else {
+            NSLog("UnityViewStack: unmountUnity requested with no Unity view in stack")
+            return
+        }
+
+        popView(currentViewController)
     }
 
     private func popView(_ viewController: UnityViewController) {

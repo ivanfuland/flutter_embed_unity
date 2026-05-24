@@ -51,4 +51,9 @@ abstract class FlutterEmbedUnityPlatform extends PlatformInterface {
   void resumeUnity() {
     throw UnimplementedError('resumeUnity() has not been implemented.');
   }
+
+  /// Explicitly detach the active Unity view from the platform side.
+  Future<void> unmountUnity() {
+    throw UnimplementedError('unmountUnity() has not been implemented.');
+  }
 }

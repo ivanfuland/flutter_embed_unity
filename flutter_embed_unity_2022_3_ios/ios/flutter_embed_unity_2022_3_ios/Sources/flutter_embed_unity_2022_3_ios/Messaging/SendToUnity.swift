@@ -1,6 +1,12 @@
 import Flutter
 
 class SendToUnity {
+    private let viewStack: UnityViewStack
+
+    init(viewStack: UnityViewStack) {
+        self.viewStack = viewStack
+    }
+
     public func handle(_ call: FlutterMethodCall, result: @escaping FlutterResult) {
         switch call.method {
         case FlutterEmbedConstants.methodNameSendToUnity:
@@ -43,6 +49,9 @@ class SendToUnity {
                 return
             }
             UnityPlayerSingleton.getInstance().pause(false)
+            result(nil)
+        case FlutterEmbedConstants.methodNameUnmountUnity:
+            viewStack.popCurrentView()
             result(nil)
         default:
             result(FlutterMethodNotImplemented)

@@ -4,10 +4,11 @@ import Foundation
 class UnityViewFactory : NSObject, FlutterPlatformViewFactory {
     
     private var messenger: FlutterBinaryMessenger
-    private let viewStack = UnityViewStack()
+    private let viewStack: UnityViewStack
 
-    init(messenger: FlutterBinaryMessenger) {
+    init(messenger: FlutterBinaryMessenger, viewStack: UnityViewStack) {
         self.messenger = messenger
+        self.viewStack = viewStack
         super.init()
     }
 
