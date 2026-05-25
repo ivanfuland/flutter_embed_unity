@@ -6,6 +6,7 @@ import android.view.InputDevice
 import android.view.MotionEvent
 import android.view.View
 import com.learntoflutter.flutter_embed_unity_android.constants.FlutterEmbedConstants.Companion.logTag
+import com.learntoflutter.flutter_embed_unity_android.messaging.LifecycleEventEmitter
 import com.unity3d.player.UnityPlayer
 import io.flutter.Log
 
@@ -57,6 +58,9 @@ class UnityPlayerSingleton private constructor (activity: Activity) : UnityPlaye
                             }
 
                             this.singleton = player
+                            // [portola] H6 — Unity runtime has just been loaded into memory for the
+                            // first time (matches iOS LifecycleEventEmitter.runtimeLoaded call site).
+                            LifecycleEventEmitter.runtimeLoaded()
                             return player
                         }
                         else {
@@ -114,6 +118,12 @@ class UnityPlayerSingleton private constructor (activity: Activity) : UnityPlaye
             Log.d(logTag, "UnityPlayerSingleton became visible, so pausing and resuming Unity")
             pause()
             resume()
+
+            // [portola] H6 — closest reliable Android proxy for "Unity rendered its first frame":
+            // the Unity player view's window became visible. Android has no true first-frame callback
+            // (iOS uses UIView viewDidAppear as the same kind of proxy). Dart markFirstFrameSeen is
+            // idempotent, so re-emitting on later visible transitions (and on view re-mount) is safe.
+            LifecycleEventEmitter.firstFrameSeen()
         }
 
         super.onWindowVisibilityChanged(visibility)

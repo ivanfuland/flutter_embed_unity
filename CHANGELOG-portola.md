@@ -186,3 +186,63 @@ HOLD:
   is wired for that standard path and runs once the harness is materialised (`flutter build` once).
 - Android instrumentation / on-device tests and the Pixel/Samsung/Xiaomi real-device matrix.
 - Android H6 / H7 / H10 native ports.
+
+## [portola] H6 Android - native lifecycle event emit
+
+Adds Android native lifecycle event emission so the Android side feeds the Dart H6
+`EmbedUnityLifecycle` state machine the same H1 `evt` envelopes iOS already emits. H7/H10 Android remain
+out of scope. iOS native, `flutter_embed_unity_6000_0_*` and `portola-p0` were not touched. No Dart API
+changes; no change to the H1 envelope schema or the M6B legacy raw `sendToUnity` path.
+
+What changed:
+
+- New `messaging/LifecycleEventEmitter.kt`. Emits H1 `evt` envelopes via the existing
+  `SendToFlutter.sendToFlutter(json)` channel (the same path iOS uses). Only the three methods the Dart
+  `EmbedUnityLifecycle.handleEvent` recognises are emitted — `runtimeLoaded`, `firstFrameSeen`,
+  `foregroundActive` — so nothing falls through to legacy listeners. `viewAttached` is intentionally not
+  emitted (Dart's `EmbedUnity` widget owns it). The envelope is built by a pure, dependency-free
+  `buildEventEnvelopeJson` (not `org.json.JSONObject`, which is an `android.jar` stub that throws under
+  plain JVM unit tests); `ts` is written as an integer literal so Dart's `_required<int>(json,'ts')`
+  decode succeeds, and the field set matches `bridge_contract.dart` `decodeJson` + the iOS emitter.
+- Emit points (mapped to the closest Android analogues of the iOS call sites):
+  - `runtimeLoaded` — `UnityPlayerSingleton.getOrCreateInstance()` right after a new `UnityPlayer`
+    singleton is created (Unity runtime first loaded).
+  - `firstFrameSeen` — `UnityPlayerSingleton.onWindowVisibilityChanged(View.VISIBLE)`. Android has no
+    true first-frame callback; the first window-visible transition is the closest reliable proxy
+    (iOS uses `viewDidAppear` as the same kind of proxy). Dart `markFirstFrameSeen` is idempotent, so
+    re-emits on later visible transitions / view re-mounts are harmless.
+  - `foregroundActive(true/false)` — `ResumeUnityOnActivityResume` (the activity `LifecycleEventObserver`)
+    emits `true` on `ON_RESUME` and `false` on `ON_PAUSE`, matching iOS foreground emits from view
+    appear/disappear. Payload is `{"active": <bool>}`, the shape Dart `_activeFromPayload` reads.
+- Best-effort delivery: emission is wrapped in try/catch and `SendToFlutter` already posts on the main
+  thread and skips + logs when the MethodChannel is not registered. Channel-not-ready policy is
+  **skip + log, no caching** (matches iOS and the existing `SendToFlutter`): an event emitted before the
+  channel is ready is dropped, and readiness stays re-derivable (the channel is registered in
+  `onAttachedToActivity` before Unity is created, so in the normal flow these emits land;
+  `foregroundActive` re-fires on the next resume/pause, `firstFrameSeen` on the next visible transition,
+  and any `resp`/`evt` sets `bridgeReady`).
+
+Alignment with iOS / Dart H6:
+- Identical `evt` method names (`runtimeLoaded` / `firstFrameSeen` / `foregroundActive`) and
+  `foregroundActive` payload key (`active`); only `msgId` prefix differs (`android-` vs `ios-`).
+- Dart consumes all three identically and does not forward them to legacy listeners.
+
+Validation (kotlinc 2.2.20 / JDK 17; Unity classes jar + Flutter embedding jar + android-36 +
+androidx.lifecycle + androidx.annotation):
+
+- Compile PASS: `LifecycleEventEmitter.kt`, `UnityPlayerSingleton.kt` and
+  `ResumeUnityOnActivityResume.kt` (plus their closure: `SendToFlutter.java`, `FlutterEmbedConstants.kt`,
+  `CopyMotionEvent.kt`, `IFakeUnityPlayerActivity.java`, `FakeUnityPlayerActivity.java`) compile clean
+  against the real Flutter / Unity / androidx APIs.
+- Logic PASS: a standalone run of the committed `LifecycleEventEmitter.buildEventEnvelopeJson` passed
+  9/9 cases — golden `runtimeLoaded` / `foregroundActive(true/false)` envelopes, `firstFrameSeen` without
+  payload, `v` as integer 1, `type":"evt"`, `ts` as integer literal (no `.0`), and defensive string
+  escaping. Mirrored by the committed `LifecycleEventEmitterTest.kt` (kotlin-test) for the standard
+  `./gradlew testDebugUnitTest` harness.
+
+HOLD:
+- Full Gradle `./gradlew testDebugUnitTest` — same environment HOLD as H2/H3 (no `gradle-wrapper.jar` /
+  `gradlew` scripts, no system Gradle; bootstrap needs a network Gradle + AGP/Flutter download).
+- Android instrumentation / on-device lifecycle validation (runtimeLoaded/firstFrameSeen/foregroundActive
+  observed end-to-end on the Pixel/Samsung/Xiaomi matrix).
+- Android H7 / H10 native ports.
