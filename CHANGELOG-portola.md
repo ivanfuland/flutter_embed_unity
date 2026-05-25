@@ -246,3 +246,56 @@ HOLD:
 - Android instrumentation / on-device lifecycle validation (runtimeLoaded/firstFrameSeen/foregroundActive
   observed end-to-end on the Pixel/Samsung/Xiaomi matrix).
 - Android H7 / H10 native ports.
+
+## [portola] H7 Android - memory policy native guard + source audit
+
+Solidifies the Android-side memory-policy boundary. This round is a source audit + lock-in guard
+comments only — no behaviour change, no C# `MemoryTrim.cs` handler, no refactor of the existing
+`destroy()` teardown logic. iOS native, `flutter_embed_unity_6000_0_*` and `portola-p0` were not touched;
+no Dart API and no new public quit/unload API.
+
+Policy固化 (per M7 plan §Task 9 / notes §4 H7):
+- Single Unity runtime per app session.
+- Normal Flutter route return / EmbedUnity view dispose = **pause + detach only** — no `destroy` /
+  `unload` / `quit` of the Unity runtime.
+- Unload / memory-trim only under memory pressure or long idle — **deferred** (see HOLD); not a
+  navigation path.
+- Quit is never a normal return path.
+
+Source audit — `destroy` / `quit` / `unload` / `kill` grep over Android native main source, classified:
+- `FlutterEmbedUnityAndroidPlugin.onDetachedFromActivity()` → `UnityPlayerSingleton.getInstance()?.destroy()`
+  — the ONLY real teardown call. Classified **activity / engine teardown** (ActivityAware detach: app
+  exit / back out of app / Activity finish), kept for issue #39. NOT a Flutter route-return path.
+- `UnityViewStack.popView()` empty-stack branch → `pause()` + an explicit "DO NOT call destroy()" note —
+  this IS the normal route-return / last-view-dispose path: pause + detach, no teardown.
+- `UnityView.onFlutterViewDetached()` → `pause()` only.
+- `UnityPlayerSingleton`: a commented-out `kill()` override (abandoned hack) + doc comments; no live call.
+- No `quitApplication` / `unloadApplication` exists in Android native or its public method channel.
+
+Boundary judgment (the tension raised before starting): `onDetachedFromActivity()` does NOT fire on an
+in-app `Navigator` route pop — that disposes the PlatformView instead
+(`UnityView.dispose()` → `UnityViewStack.popView()` → `detachUnity()` + `pause()`). So the route-return
+path is already destroy-free; the lone `destroy()` is correctly teardown-scoped. No HOLD risk, and the
+`destroy()` semantics were intentionally left unchanged (changing them risks regressing issue #39).
+
+Guards added (comment-only, no behaviour change):
+- `onDetachedFromActivity()` — comment marks it the activity/engine-teardown path, not route-return, and
+  warns against moving `destroy()` onto the route-return path.
+- `UnityViewStack.popView()` — comment marks the empty-stack branch as the H7 pause+detach route-return
+  path with no runtime teardown.
+- `SendToUnity.onMethodCall` `else` branch — comment documents that the method channel exposes only
+  sendToUnity/pauseUnity/resumeUnity; there is deliberately no quit/unload/destroy/memoryTrim handler, and
+  unknown methods return `notImplemented` rather than silently invoking a dangerous teardown API.
+
+Validation (kotlinc 2.2.20 / JDK 17):
+- Compile PASS: the entire Android main source set (15 `.kt` + `.java` files, including these H7 comment
+  edits and the prior H2/H3/H6 changes) compiles clean against the real Flutter embedding + Unity classes +
+  android-36 + androidx.lifecycle/annotation jars (one pre-existing `FLAG_FULLSCREEN` deprecation warning).
+- No new pure logic was added, so no new unit test this round; validation is the source-audit
+  classification above + the full-module compile + grep + diff guards.
+
+HOLD:
+- C# `UnityProject/Assets/FlutterEmbed/MemoryTrim.cs` envelope handler + Kotlin memory-trim trigger —
+  deferred (out of this round's scope by control-plane direction).
+- Android memory profiler (enter/leave Unity ×N → no monotonic growth) and on-device validation.
+- Android H10 native port.

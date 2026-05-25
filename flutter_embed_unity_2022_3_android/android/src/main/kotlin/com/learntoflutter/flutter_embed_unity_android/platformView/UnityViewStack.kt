@@ -90,13 +90,17 @@ class UnityViewStack {
             }
         }
         else {
-            // No more Unity views, so pause
+            // No more Unity views, so pause.
+            // [portola] H7 memory policy: a normal Flutter route return / last EmbedUnity view dispose
+            // ends here as PAUSE + DETACH only — no destroy / unload / quit of the Unity runtime. The
+            // single UnityPlayer is kept alive for the app session and re-attached on the next view.
             Log.i(logTag, "No more EmbedUnity views in stack, pausing Unity")
             UnityPlayerSingleton.getInstance()?.pause()
             // DO NOT call unityPlayerCustom.destroy(). UnityPlayer will also kill the process it is
             // running in, because it was designed to be run within it's own activity launched in it's
             // own process. We can't make FlutterActivity launch in it's own process, because it's the
-            // main (and usually the only) activity.
+            // main (and usually the only) activity. Runtime teardown happens only on activity/app
+            // teardown (FlutterEmbedUnityAndroidPlugin.onDetachedFromActivity), never on route return.
         }
     }
 }

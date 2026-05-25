@@ -159,9 +159,15 @@ class FlutterEmbedUnityAndroidPlugin : FlutterPlugin, ActivityAware {
     // ActivityAware
     override fun onDetachedFromActivity() {
         Log.i(logTag, "onDetachedFromActivity - the Flutter activity has been detached, unloading unity")
-        // Destroying Unity is important - it prevents the app from crashing if the user exits the app
-        // using the Android back button, then re-opens the app and navigates back to a screen with Unity
-        // (see https://github.com/learntoflutter/flutter_embed_unity/issues/39)
+        // [portola] H7 memory-policy boundary: this is the ACTIVITY / ENGINE TEARDOWN path
+        // (ActivityAware.onDetachedFromActivity fires when the FlutterEngine is detached from its host
+        // Activity — app exit / back out of the app / Activity finish). It is NOT the normal Flutter
+        // route-return path. A normal in-app route pop disposes the PlatformView instead, which routes
+        // through UnityView.dispose() -> UnityViewStack.popView() -> detachUnity() + pause() with NO
+        // destroy/unload/quit. The destroy() below must stay scoped to teardown: it prevents a crash
+        // when the user exits via the Android back button then re-enters a Unity screen
+        // (see https://github.com/learntoflutter/flutter_embed_unity/issues/39). Do not move it onto the
+        // route-return path.
         UnityPlayerSingleton.getInstance()?.destroy()
         UnityPlayerSingleton.flutterActivity = null
         // Remove the lifecycle observer

@@ -17,7 +17,15 @@ class SendToUnity : MethodChannel.MethodCallHandler {
             methodNameSendToUnity -> handleSendToUnity(call, result)
             methodNamePauseUnity -> handlePauseOrResume(pause = true, result = result)
             methodNameResumeUnity -> handlePauseOrResume(pause = false, result = result)
-            else -> result.notImplemented()
+            else -> {
+                // [portola] H7 memory-policy guard: the Android method channel exposes only
+                // sendToUnity / pauseUnity / resumeUnity. There is deliberately NO quitApplication /
+                // unloadApplication / destroy / memoryTrim handler — any such (or otherwise unknown)
+                // method is rejected with notImplemented rather than silently invoking a dangerous
+                // Unity teardown API. Memory-trim / unload stays a deferred path this round (no C#
+                // MemoryTrim handler added).
+                result.notImplemented()
+            }
         }
     }
 
