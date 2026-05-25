@@ -299,3 +299,79 @@ HOLD:
   deferred (out of this round's scope by control-plane direction).
 - Android memory profiler (enter/leave Unity ×N → no monotonic growth) and on-device validation.
 - Android H10 native port.
+
+## [portola] H10 Android - crash collector source foundation
+
+Adds the Android native crash-collector source foundation (observability H10). Scope this round is the
+source + a chained `UncaughtExceptionHandler` + best-effort crash-record file output + JVM tests — no
+real-device induced-crash validation, no remote upload/sink, no device-metadata method channel, and no
+duplicate H6 lifecycle/observability trace emit. iOS native, `flutter_embed_unity_6000_0_*` and
+`portola-p0` were not touched; no Dart API change; no new Android permission.
+
+What changed:
+
+- New `unity/CrashReport.kt` (pure, dependency-free — JVM-testable, no Android/Flutter/Unity imports):
+  - `CrashSink` interface.
+  - `CrashCollectorHandler(previous, sink)` — a `Thread.UncaughtExceptionHandler` that runs the sink
+    best-effort (any failure swallowed) and then ALWAYS chains to the previously-installed default
+    handler so the crash is never swallowed and the system crash flow (Android RuntimeInit
+    `KillApplicationHandler`) is preserved. If there is no previous handler (effectively never on
+    Android) it prints to `System.err` as a non-swallowing last resort.
+  - `CrashReport` — `fileName(ts)` (deterministic, sortable), `tail(lines, maxLines)` (bounds logcat),
+    `format(...)` (auditable crash record text built from thread + throwable + optional logcat tail +
+    tombstone hint).
+- New `unity/CrashCollector.kt` (Android wiring):
+  - `CrashCollector.install(context)` — idempotent (`@Volatile` + double-checked flag); registers the
+    chained handler once, capturing the existing default as `previous`. Install failures are caught so
+    they never break plugin attach.
+  - `AndroidCrashSink` — writes the crash record to an app-private dir `filesDir/flutter_embed_unity_crashes/`
+    (no public/external storage, no permission), prunes to a max of 20 files, collects a bounded
+    own-process logcat tail (`logcat -d -v threadtime`, last 500 lines — own-process logs need no
+    READ_LOGS), and records the conventional `/data/tombstones` location as an auditable hint (no
+    privileged read attempt). Every step is guarded so the crash path never throws.
+- `FlutterEmbedUnityAndroidPlugin.onAttachedToEngine` calls `CrashCollector.install(applicationContext)`
+  — a stable, Activity-independent (process-scoped) init path; idempotent so re-attach is a no-op.
+
+Crash handler chaining strategy:
+- Order inside `uncaughtException`: (1) best-effort `sink.record` in a try/catch, (2) always delegate to
+  the previous handler (or `printStackTrace()` if none). The crash is never swallowed and a secondary
+  failure in collection never escapes.
+
+Crash record file:
+- Location: `<app filesDir>/flutter_embed_unity_crashes/crash-<epochMillis>.txt` (app-private, pruned to 20).
+- Format example:
+  ```
+  flutter_embed_unity crash report
+  timestampMillis: 1716265200000
+  thread: main
+  exception: java.lang.IllegalStateException: boom
+  stackTrace:
+  java.lang.IllegalStateException: boom
+      at ...
+  tombstone: /data/tombstones (not app-readable without root)
+  logcatTail (500 lines):
+  <logcat lines>
+  ```
+
+No double-emit: `CrashCollector` does NOT emit any H6 `evt` / observability trace; attach/detach/pause/
+resume/first_frame/bridge_ready remain driven solely by the H6 `LifecycleEventEmitter`.
+
+Validation (kotlinc 2.2.20 / JDK 17):
+- Logic PASS: a standalone run of the committed `CrashReport` + `CrashCollectorHandler` passed 15/15 —
+  file naming, logcat-tail bounding (last-N / under-limit / non-positive), crash-record formatting
+  (fields present; logcat/tombstone omitted when absent), and handler chaining (sink-then-previous,
+  sink-failure-still-chains, null-previous-records-without-throwing). Mirrored by the committed
+  `CrashReportTest.kt` (kotlin-test) for the standard `./gradlew testDebugUnitTest` harness.
+- Compile PASS: the entire Android main source set (17 `.kt` + `.java`, incl. `CrashReport.kt`,
+  `CrashCollector.kt` and the plugin install hook) compiles clean against the real Flutter embedding +
+  Unity classes + android-36 + androidx jars (one pre-existing `FLAG_FULLSCREEN` deprecation warning).
+- No new Android permission (AndroidManifest unchanged; own-process logcat + app-private files need none).
+
+HOLD:
+- Real-device induced-crash capture validation (force a Unity/JVM crash → confirm crash file + logcat
+  tail written), and the Pixel/Samsung/Xiaomi matrix.
+- Remote crash upload / remote `ObservabilitySink`.
+- Device-metadata method channel (`device_model` / `os_version` / `gpu_renderer`) — deferred to a later
+  task by control-plane direction.
+- Full Gradle `./gradlew testDebugUnitTest` — same environment HOLD as H2/H3/H6 (no gradle wrapper jar /
+  scripts, no system Gradle).

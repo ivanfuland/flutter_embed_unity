@@ -5,6 +5,7 @@ import com.learntoflutter.flutter_embed_unity_android.constants.FlutterEmbedCons
 import com.learntoflutter.flutter_embed_unity_android.messaging.SendToFlutter
 import com.learntoflutter.flutter_embed_unity_android.messaging.SendToUnity
 import com.learntoflutter.flutter_embed_unity_android.platformView.UnityViewFactory
+import com.learntoflutter.flutter_embed_unity_android.unity.CrashCollector
 import com.learntoflutter.flutter_embed_unity_android.unity.ResumeUnityOnActivityResume
 import com.learntoflutter.flutter_embed_unity_android.unity.UnityPlayerSingleton
 import io.flutter.embedding.engine.plugins.FlutterPlugin
@@ -40,6 +41,10 @@ class FlutterEmbedUnityAndroidPlugin : FlutterPlugin, ActivityAware {
 
     override fun onAttachedToEngine(flutterPluginBinding: FlutterPlugin.FlutterPluginBinding) {
         Log.d(logTag, "onAttachedToEngine")
+
+        // [portola] H10 — install the crash collector once on this stable, Activity-independent path
+        // (applicationContext is process-scoped). The install is idempotent, so re-attach is a no-op.
+        CrashCollector.install(flutterPluginBinding.applicationContext)
 
         // Store the messenger reference, in case this is the main Flutter Engine and needs to setup a MethodChannel.
         // (do not create the MethodChannel here, it must only be created if an Activity is attached.
