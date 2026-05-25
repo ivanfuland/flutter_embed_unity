@@ -134,3 +134,55 @@ Validation (Unity 2022.3.62f3, Windows 11, Android module + SDK `F:\AndroidEnv\S
 Still HOLD (Android real-device build/run; unchanged by this source work):
 - On-device APK build / install / run on the Pixel + Samsung + Xiaomi matrix (M7 plan §Validation Gates).
 - Android native H2/H3/H6/H7/H10 ports remain out of this task's scope.
+
+## [portola] H2/H3 Android - native sendToUnity result semantics + defensive parsing
+
+Ports the H2/H3 hardening to the Android Kotlin plugin
+(`flutter_embed_unity_2022_3_android`), matching the already-landed iOS `SendToUnity.swift`.
+H6/H7/H10 Android remain out of scope. iOS native, `flutter_embed_unity_6000_0_*` and `portola-p0`
+were not touched.
+
+What changed:
+
+- Rewrote `messaging/SendToUnity.kt`. The legacy handler did
+  `(call.arguments as List<*>).filterIsInstance<String>()[0..2]` (crashes on nil / non-list / wrong
+  count / non-string args via ClassCastException or IndexOutOfBounds) and **never called `result.*`**,
+  so the awaited Dart `sendToUnity` Future hung forever. Now:
+  - happy path calls `result.success(null)` explicitly;
+  - malformed arguments return `result.error("INVALID_ARGUMENTS", ...)`;
+  - when Unity is not loaded (`UnityPlayerSingleton.getInstance() == null`) it returns
+    `result.error("UNITY_NOT_LOADED", ...)`;
+  - `pauseUnity` / `resumeUnity` also complete explicitly (same `UNITY_NOT_LOADED` guard +
+    `result.success(null)`), closing the same non-completing-future gap.
+- Added `messaging/SendToUnityArguments.kt`: a pure, dependency-free `resolve(arguments, unityLoaded)`
+  returning a `SendToUnityOutcome` (`Send` / `InvalidArguments` / `UnityNotLoaded`). No unsafe casts —
+  arguments must be a `List<*>` of exactly three Strings with non-empty gameObjectName + methodName.
+  Validation precedence matches iOS (INVALID_ARGUMENTS before UNITY_NOT_LOADED).
+- Error codes `INVALID_ARGUMENTS` / `UNITY_NOT_LOADED` match iOS for cross-platform parity; the Dart
+  H2/H3 layer maps the resulting `PlatformException` to `BridgeError`.
+- M6B compatibility preserved: `data` (3rd arg) is forwarded raw / byte-identical to
+  `UnityPlayer.UnitySendMessage`. The Android native layer never inspects or requires the H1 envelope
+  (`v`/`type`/`msgId`/`corrId`) — building the envelope stays the Dart `sendToUnityRequest` path's job.
+- No Dart API changes.
+- Replaced the stale Flutter-template unit test `FlutterEmbedUnityPluginTest.kt` (referenced a
+  non-existent `FlutterEmbedUnityPlugin` + `getPlatformVersion` and an undeclared Mockito dep — it
+  could not compile against the real plugin) with `SendToUnityArgumentsTest.kt` (kotlin-test) covering:
+  nil/non-list args, wrong arg count, non-string args, empty names, Unity-not-loaded, invalid-arg
+  precedence, happy-path `Send`, byte-identical raw data passthrough, and empty-data-allowed.
+
+Validation (kotlinc 2.2.20 / JDK 17; Unity classes jar + Flutter embedding jar + android-36 + androidx.lifecycle):
+
+- Compile PASS: `SendToUnity.kt` + `SendToUnityArguments.kt` and their dependency closure compile clean
+  against the real `io.flutter.plugin.common.*` / `io.flutter.Log` and `com.unity3d.player.*` APIs.
+- Logic PASS: a standalone run of the committed `SendToUnityArguments.resolve` covered all unit cases
+  above — 17/17 assertions green (nil/non-list/int → INVALID; count 0/2/4 → INVALID; non-string/null
+  elem → INVALID; empty go/method → INVALID; valid+not-loaded → UNITY_NOT_LOADED; invalid precedence;
+  happy → Send with byte-identical data; empty data allowed).
+
+HOLD:
+- Full Gradle `./gradlew testDebugUnitTest` (which runs `SendToUnityArgumentsTest.kt`) — environment
+  HOLD: `example/android` has no `gradle-wrapper.jar` / `gradlew` scripts and there is no system
+  Gradle/`GRADLE_HOME`; bootstrapping needs a network Gradle + AGP/Flutter-embedding download. The test
+  is wired for that standard path and runs once the harness is materialised (`flutter build` once).
+- Android instrumentation / on-device tests and the Pixel/Samsung/Xiaomi real-device matrix.
+- Android H6 / H7 / H10 native ports.
