@@ -51,7 +51,16 @@ public class ProjectExporterBatchmode
         }
 
         Debug.Log("Exporting Android project in batchmode.");
-      
+
+        // [portola] H8 — apply the canonical, reproducible batch preset BEFORE the PreCheck verifier
+        // runs, so a fresh checkout / clean Library does not depend on hidden, GUI-configured Editor
+        // state (active build target, "Export project", IL2CPP, target architectures). The checker
+        // below then verifies the preset took effect (defence-in-depth).
+        foreach (string applied in A1BatchPresets.ApplyAndroid())
+        {
+            Debug.Log(applied);
+        }
+
         ProjectExportCheckerResult result = projectExportChecker.PreCheckAndroid();
 
 #if UNITY_ANDROID

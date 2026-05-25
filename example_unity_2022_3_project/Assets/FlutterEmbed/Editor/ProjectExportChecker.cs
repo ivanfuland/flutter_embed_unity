@@ -200,6 +200,8 @@ internal class ProjectExportChecker
 
                     if (confirmDeleteOldExport)
                     {
+                        // [portola] H8 — refuse to recursively delete a dangerous target (project root, Assets, etc.).
+                        ProjectExportHelpers.AssertSafeExportDirectory(selectedDirectory.FullName);
                         Directory.Delete(selectedDirectory.FullName, true);
                     }
                 }
@@ -255,6 +257,16 @@ internal class ProjectExportChecker
             options = buildOptions
         };
 
+        // [portola] H8 — scene source is the committed EditorBuildSettings.asset (enabled scenes).
+        // Fail fast on an empty scene list instead of silently producing an empty/broken export.
+        if (buildPlayerOptions.scenes == null || buildPlayerOptions.scenes.Length == 0)
+        {
+            ProjectExportHelpers.ShowErrorMessage(
+                "No enabled scenes found in EditorBuildSettings (File -> Build Settings -> Scenes In Build). " +
+                "A reproducible export requires at least one enabled scene.");
+            return ProjectExportCheckerResult.Failure();
+        }
+
         // The same directory checks as in PrepareExportDirectory, but don't ask permission to create and delete directories
 
         if (selectedDirectory.Name.Equals(subfolderName)) 
@@ -275,6 +287,8 @@ internal class ProjectExportChecker
         {
             if (Directory.Exists(buildPlayerOptions.locationPathName) && Directory.GetFileSystemEntries(buildPlayerOptions.locationPathName).Length != 0)
             {
+                // [portola] H8 — refuse to recursively delete a dangerous target (project root, Assets, etc.).
+                ProjectExportHelpers.AssertSafeExportDirectory(selectedDirectory.FullName);
                 Debug.Log($"Deleting existing contents of {selectedDirectory.FullName}");
                 Directory.Delete(selectedDirectory.FullName, true);
             }
